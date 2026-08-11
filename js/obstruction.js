@@ -145,8 +145,18 @@ const Obstruction = (() => {
     return points;
   }
 
+  // points: [{lat, lon}, ...]. Prefers free, keyless Terrarium elevation
+  // tiles (browser-cacheable, not a rate-limited point-query API); falls
+  // back to Open-Meteo if tile loading fails (e.g. a CORS hiccup).
   async function fetchElevations(points) {
-    // points: [{lat, lon}, ...]. Batches to stay well under typical URL limits.
+    try {
+      return await Elevation.getElevations(points);
+    } catch (err) {
+      return await fetchElevationsFromOpenMeteo(points);
+    }
+  }
+
+  async function fetchElevationsFromOpenMeteo(points) {
     const BATCH = 90;
     const results = [];
     for (let i = 0; i < points.length; i += BATCH) {
