@@ -24,13 +24,21 @@ const Obstruction = (() => {
     "https://overpass.openstreetmap.ru/api/interpreter",
   ];
   const MAX_RETRIES = 4;
+  const OVERPASS_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // buildings/trees change rarely, but not never
+  const ELEVATION_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // terrain elevation is effectively static
 
   function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
   function backoffMs(attempt) { return Math.min(8000, 500 * 2 ** attempt) + Math.random() * 300; }
 
   // POSTs an Overpass query, retrying with backoff and cycling through
   // mirrors on 429 (rate limited) / 5xx (server busy/timeout) responses.
+  // Checks a local cache first — this only helps repeat views in the same
+  // browser (no shared backend), but that's the common case while testing/
+  // revisiting the same spot.
   async function fetchOverpass(query) {
+    const cached = LocalCache.get(query);
+    if (cached) return cached;
+
     let lastErr;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       const endpoint = OVERPASS_ENDPOINTS[attempt % OVERPASS_ENDPOINTS.length];
@@ -45,7 +53,9 @@ const Obstruction = (() => {
         } else if (!res.ok) {
           throw new Error(`Overpass API failed: ${res.status}`);
         } else {
-          return await res.json();
+          const data = await res.json();
+          LocalCache.set(query, data, OVERPASS_CACHE_TTL_MS);
+          return data;
         }
       } catch (err) {
         lastErr = err;
@@ -57,6 +67,9 @@ const Obstruction = (() => {
 
   // Fetches one elevation batch URL, retrying with backoff on 429/5xx.
   async function fetchElevationBatch(url) {
+    const cached = LocalCache.get(url);
+    if (cached) return cached;
+
     let lastErr;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
@@ -66,7 +79,9 @@ const Obstruction = (() => {
         } else if (!res.ok) {
           throw new Error(`Elevation API failed: ${res.status}`);
         } else {
-          return await res.json();
+          const data = await res.json();
+          LocalCache.set(url, data, ELEVATION_CACHE_TTL_MS);
+          return data;
         }
       } catch (err) {
         lastErr = err;

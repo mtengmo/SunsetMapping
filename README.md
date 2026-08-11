@@ -42,6 +42,11 @@ buildings/trees, at any date and time.
   large (to avoid oversized Overpass queries).
 - **Help**: an in-app ❓ Help panel explains what the map, results, chart,
   wizard, and shading mean.
+- **Local caching**: Overpass and elevation responses are cached in
+  `localStorage` (buildings/trees for 12h, elevation for 30 days, keyed by
+  the exact query). This only speeds up repeat visits to the *same* area in
+  the *same* browser — it doesn't help first-time or scattered queries, and
+  there's no shared cache across users since there's no backend.
 
 Everything runs in the browser — there is no backend, database, or build
 step. It deploys as static files to GitHub Pages, Vercel (static), or any
