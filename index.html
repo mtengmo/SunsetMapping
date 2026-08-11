@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sunset Simulator</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <div id="panel">
+    <div id="status">
+      <span id="status-text">Click the map or allow location access to pick a spot.</span>
+    </div>
+
+    <div id="results" class="hidden">
+      <div id="result-headline"></div>
+      <canvas id="profile-chart" width="600" height="140"></canvas>
+      <div id="result-detail"></div>
+    </div>
+
+    <div id="shading-status" class="hidden"></div>
+
+    <div id="wizard-panel" class="hidden">
+      <div id="wizard-header">
+        <strong>Best sunset spots in this view</strong>
+        <button id="wizard-close" title="Close">✕</button>
+      </div>
+      <div id="wizard-status"></div>
+      <ol id="wizard-list"></ol>
+    </div>
+  </div>
+
+  <div id="bottom-bar">
+    <div id="timeline-caption"></div>
+    <div id="bottom-controls">
+      <button id="locate-btn" title="Use my location">📍</button>
+
+      <div id="datetime-controls">
+        <input type="date" id="date-input" />
+        <div id="timeline-wrap">
+          <div id="timeline-track"></div>
+          <div id="timeline-sunset-marker" class="hidden" title="Sunset"></div>
+          <input type="range" id="time-slider" min="0" max="1439" step="1" value="1080" />
+        </div>
+        <span id="time-label">18:00</span>
+      </div>
+
+      <button id="shade-btn" title="Shade buildings on the map based on current sun position">🌗 Shade map</button>
+      <button id="wizard-btn" title="Find best sunset spots in current map view">🧙 Find best spot</button>
+      <button id="help-btn" title="What am I looking at?">❓ Help</button>
+    </div>
+  </div>
+
+  <div id="help-overlay" class="hidden">
+    <div id="help-modal">
+      <div id="help-header">
+        <strong>What this shows</strong>
+        <button id="help-close" title="Close">✕</button>
+      </div>
+      <div id="help-body">
+        <p><strong>Pick a spot</strong> by clicking the map, dragging the pin, or using 📍 for your browser location.</p>
+        <p><strong>Date/time slider</strong> moves the sun. The orange dashed line on the map is the direction toward the sun (the sunset azimuth) from your selected spot.</p>
+        <p><strong>Timeline shading:</strong> dark = night, light blue = daytime, orange bands = golden hour (soft low-angle light, best for photos), and the ⬥ marker is the exact sunset moment for your selected spot and date.</p>
+        <p><strong>Results panel:</strong> "Visible" (green) means the sun's altitude is higher than everything blocking it along that direction — you'd see the sunset. "Blocked" (red) names what's in the way (a building, tree, or terrain) and roughly how far away it is. The chart plots the ground/obstruction profile (blue) against the sun's altitude (orange dashed line) out to 2km.</p>
+        <p><strong>Shade map</strong> shades OSM buildings' cast shadows on the map itself for the current sun position/time, so you can see at a glance which areas are in shadow vs. sunlit. Shadows update as you move the time slider; use the map to pan/zoom, since shadows are only computed for the currently visible area (query area is capped to avoid overloading the free map data API).</p>
+        <p><strong>🧙 Find best spot</strong> grid-searches the current map view and ranks points by how much clearance the sun has over obstructions at the selected date/time. Green markers = visible, red = blocked, gold ring = top 3. Click a marker or list item to jump the main simulator there.</p>
+        <p><strong>Accuracy notes:</strong> most OSM buildings aren't tagged with a real height, so an estimated ~9m (3 storeys) is used when untagged; tree heights are always estimated (~12m), since OSM rarely records them. Treat results as a strong guide, not a survey-grade guarantee.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
+<script src="js/sun.js"></script>
+<script src="js/obstruction.js"></script>
+<script src="js/wizard.js"></script>
+<script src="js/shading.js"></script>
+<script src="js/map.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
