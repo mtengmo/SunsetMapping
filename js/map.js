@@ -100,6 +100,15 @@ const MapModule = (() => {
     });
   }
 
+  // Shades the entire visible area — used when the sun is at/below the
+  // horizon, since everything is in shadow rather than nothing.
+  function showFullShade(opacity) {
+    clearShadows();
+    shadowLayer = L.layerGroup().addTo(map);
+    const bounds = map.getBounds().pad(1); // pad so a pan doesn't immediately reveal an unshaded edge
+    L.rectangle(bounds, { stroke: false, fillColor: "#0a0c12", fillOpacity: opacity }).addTo(shadowLayer);
+  }
+
   function onMoveEnd(cb) {
     map.on("moveend", cb);
   }
@@ -111,6 +120,6 @@ const MapModule = (() => {
 
   return {
     init, setLocation, tryGeolocate, drawSunRay, getBounds, getCenter,
-    showWizardResults, clearWizardResults, showShadows, clearShadows, onMoveEnd,
+    showWizardResults, clearWizardResults, showShadows, showFullShade, clearShadows, onMoveEnd,
   };
 })();

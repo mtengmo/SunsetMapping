@@ -255,22 +255,26 @@
     if (!shadingEnabled) return;
 
     const bounds = MapModule.getBounds();
-    if (Shading.boundsAreaTooLarge(bounds)) {
-      MapModule.clearShadows();
-      shadingStatus.textContent = "Zoom in further to shade buildings — the current view is too large for the free map-data API.";
-      shadingStatus.classList.remove("hidden");
-      return;
-    }
-
     const center = MapModule.getCenter();
     const lat = currentLat !== null ? currentLat : center.lat;
     const lon = currentLon !== null ? currentLon : center.lon;
     const date = getSelectedDate();
     const sunPos = SunModel.getPosition(date, lat, lon);
 
+    // At/below the horizon everything is in shadow — shade the whole view
+    // rather than clearing (no building data needed for this case).
     if (sunPos.altitudeDeg <= 0.5) {
+      const opacity = sunPos.altitudeDeg <= -6 ? 0.65 : 0.35; // darker once past civil twilight
+      MapModule.showFullShade(opacity);
+      const when = sunPos.altitudeDeg <= -6 ? "Night" : "Twilight";
+      shadingStatus.textContent = `${when}: sun altitude ${sunPos.altitudeDeg.toFixed(1)}° — everything here is in shadow.`;
+      shadingStatus.classList.remove("hidden");
+      return;
+    }
+
+    if (Shading.boundsAreaTooLarge(bounds)) {
       MapModule.clearShadows();
-      shadingStatus.textContent = "Sun is at/below the horizon here — no shadows to show.";
+      shadingStatus.textContent = "Zoom in further to shade buildings — the current view is too large for the free map-data API.";
       shadingStatus.classList.remove("hidden");
       return;
     }
