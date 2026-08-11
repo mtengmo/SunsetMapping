@@ -92,11 +92,11 @@ const MapModule = (() => {
   }
 
   // polygons: array of [[lat, lon], ...] rings.
-  function showShadows(polygons) {
+  function showShadows(polygons, opacity = 0.38) {
     clearShadows();
     shadowLayer = L.layerGroup().addTo(map);
     polygons.forEach((ring) => {
-      L.polygon(ring, { stroke: false, fillColor: "#12141c", fillOpacity: 0.38 }).addTo(shadowLayer);
+      L.polygon(ring, { stroke: false, fillColor: "#12141c", fillOpacity: opacity }).addTo(shadowLayer);
     });
   }
 

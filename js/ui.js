@@ -279,11 +279,17 @@
       return;
     }
 
+    shadingStatus.textContent = "Loading building data for shading… (can take a few seconds on the free map API, longer if it's rate-limited)";
+    shadingStatus.classList.remove("hidden");
+
     try {
       const { buildings } = await Shading.loadBuildings(bounds);
       if (!shadingEnabled) return; // toggled off while this was in flight
       const polygons = Shading.computeShadowPolygons(buildings, sunPos.azimuthDeg, sunPos.altitudeDeg);
-      MapModule.showShadows(polygons);
+      // Shadows get visibly darker (not just longer) as the sun nears the
+      // horizon, so there's still a visible change once shadow length caps out.
+      const opacity = Math.max(0.25, Math.min(0.55, 0.58 - (sunPos.altitudeDeg / 30) * 0.33));
+      MapModule.showShadows(polygons, opacity);
       shadingStatus.textContent = `Shading ${buildings.length} building${buildings.length === 1 ? "" : "s"} in view (sun altitude ${sunPos.altitudeDeg.toFixed(1)}°).`;
       shadingStatus.classList.remove("hidden");
     } catch (err) {

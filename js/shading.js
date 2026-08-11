@@ -4,7 +4,12 @@
 // height / tan(altitude). Good approximation for typical (roughly convex)
 // building footprints; not exact for concave/L-shaped buildings.
 const Shading = (() => {
-  const MAX_SHADOW_LENGTH_M = 300; // cap so very low sun angles don't produce absurd polygons
+  // Cap so very low sun angles don't produce absurd polygons. height/tan(altitude)
+  // blows up fast near the horizon — e.g. a 9m building already hits a 300m cap
+  // around altitude 1.7°, well before actual sunset (altitude 0.5°, where shading
+  // switches to full-view shade) — so this is set high enough that shadow length
+  // keeps visibly growing most of the way to that switch-over.
+  const MAX_SHADOW_LENGTH_M = 700;
   const MAX_QUERY_AREA_DEG2 = 0.02; // guard against huge Overpass queries when zoomed out
 
   let cachedBuildings = null;
