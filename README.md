@@ -11,12 +11,17 @@ buildings/trees, at any date and time.
 - **Sun position**: [SunCalc](https://github.com/mourner/suncalc) computes the
   sun's azimuth/altitude for the selected date/time.
 - **Obstruction**: a horizon-profile calculation samples points along the
-  sun's azimuth out to 2km, fetches terrain elevation from the
-  [Open-Meteo Elevation API](https://open-meteo.com/en/docs/elevation-api),
-  and fetches nearby buildings/trees from the
-  [Overpass API](https://overpass-api.de/). It computes the angle from the
-  viewer to the highest obstruction along that line and compares it to the
-  sun's altitude.
+  sun's azimuth out to 2km, fetches terrain elevation, and fetches nearby
+  buildings/trees from the [Overpass API](https://overpass-api.de/). It
+  computes the angle from the viewer to the highest obstruction along that
+  line and compares it to the sun's altitude.
+- **Terrain elevation**: primarily read from free, keyless
+  [Terrarium elevation tiles](https://registry.opendata.aws/terrain-tiles/)
+  (AWS Open Data, `s3://elevation-tiles-prod`) — elevation is packed into
+  each tile's RGB pixels and decoded via canvas, which is far more
+  cache/CDN-friendly than a rate-limited point-query API. Falls back to the
+  [Open-Meteo Elevation API](https://open-meteo.com/en/docs/elevation-api)
+  if tile loading fails for any reason.
 - **Date/time control**: bottom bar has a date picker and a minute-resolution
   time slider.
 - **"Find best spot" wizard**: grid-searches the current map view (up to a
@@ -58,10 +63,10 @@ static host.
   untagged, a default of 9m (~3 storeys) is used and labeled as an estimate.
 - Tree heights are never tagged in OSM; a fixed 12m estimate is used for all
   `natural=tree` nodes.
-- The public Overpass API and Open-Meteo elevation API have modest anonymous
-  rate limits and no CORS guarantees. Under heavy use (or if the public
-  Overpass instance is busy) requests may be slow or fail — the UI surfaces
-  this as an error rather than silently failing.
+- The public Overpass API (and the Open-Meteo elevation fallback) have
+  modest anonymous rate limits and no CORS guarantees. Under heavy use (or
+  if the public Overpass instance is busy) requests may be slow or fail —
+  the UI surfaces this as an error rather than silently failing.
 - The wizard's grid is intentionally coarse (max 6x6 points, 800m ray length
   vs. 2km for the single-point simulator) to keep total API calls bounded on
   the free public endpoints — it's meant to shortlist promising spots, not
