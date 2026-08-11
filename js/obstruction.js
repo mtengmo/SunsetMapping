@@ -15,7 +15,66 @@ const Obstruction = (() => {
   const CORRIDOR_HALF_WIDTH_DEG = 4; // bearing tolerance either side of azimuth
 
   const ELEVATION_API = "https://api.open-meteo.com/v1/elevation";
-  const OVERPASS_API = "https://overpass-api.de/api/interpreter";
+  // Public Overpass instances to cycle through on rate-limit/server errors —
+  // there's no backend here to absorb load, so spreading across mirrors and
+  // backing off is the main defense against 429s.
+  const OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.openstreetmap.ru/api/interpreter",
+  ];
+  const MAX_RETRIES = 4;
+
+  function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+  function backoffMs(attempt) { return Math.min(8000, 500 * 2 ** attempt) + Math.random() * 300; }
+
+  // POSTs an Overpass query, retrying with backoff and cycling through
+  // mirrors on 429 (rate limited) / 5xx (server busy/timeout) responses.
+  async function fetchOverpass(query) {
+    let lastErr;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const endpoint = OVERPASS_ENDPOINTS[attempt % OVERPASS_ENDPOINTS.length];
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          body: "data=" + encodeURIComponent(query),
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        });
+        if (res.status === 429 || res.status >= 500) {
+          lastErr = new Error(`Overpass API busy (${res.status}) at ${endpoint}`);
+        } else if (!res.ok) {
+          throw new Error(`Overpass API failed: ${res.status}`);
+        } else {
+          return await res.json();
+        }
+      } catch (err) {
+        lastErr = err;
+      }
+      if (attempt < MAX_RETRIES - 1) await sleep(backoffMs(attempt));
+    }
+    throw lastErr || new Error("Overpass API failed after retries");
+  }
+
+  // Fetches one elevation batch URL, retrying with backoff on 429/5xx.
+  async function fetchElevationBatch(url) {
+    let lastErr;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch(url);
+        if (res.status === 429 || res.status >= 500) {
+          lastErr = new Error(`Elevation API busy (${res.status})`);
+        } else if (!res.ok) {
+          throw new Error(`Elevation API failed: ${res.status}`);
+        } else {
+          return await res.json();
+        }
+      } catch (err) {
+        lastErr = err;
+      }
+      if (attempt < MAX_RETRIES - 1) await sleep(backoffMs(attempt));
+    }
+    throw lastErr || new Error("Elevation API failed after retries");
+  }
 
   function toRad(d) { return (d * Math.PI) / 180; }
   function toDeg(r) { return (r * 180) / Math.PI; }
@@ -80,9 +139,7 @@ const Obstruction = (() => {
       const lats = batch.map((p) => p.lat.toFixed(6)).join(",");
       const lons = batch.map((p) => p.lon.toFixed(6)).join(",");
       const url = `${ELEVATION_API}?latitude=${lats}&longitude=${lons}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Elevation API failed: ${res.status}`);
-      const data = await res.json();
+      const data = await fetchElevationBatch(url);
       results.push(...data.elevation);
     }
     return results;
@@ -122,13 +179,7 @@ const Obstruction = (() => {
 
   async function fetchObstacles(lat, lon, radiusM) {
     const query = `[out:json][timeout:25];(way["building"](around:${radiusM},${lat},${lon});node["natural"="tree"](around:${radiusM},${lat},${lon}););out body geom;`;
-    const res = await fetch(OVERPASS_API, {
-      method: "POST",
-      body: "data=" + encodeURIComponent(query),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    if (!res.ok) throw new Error(`Overpass API failed: ${res.status}`);
-    const data = await res.json();
+    const data = await fetchOverpass(query);
     return parseObstacleElements(data.elements);
   }
 
@@ -138,13 +189,7 @@ const Obstruction = (() => {
   async function fetchObstaclesInBounds(south, west, north, east) {
     const bbox = `${south},${west},${north},${east}`;
     const query = `[out:json][timeout:30];(way["building"](${bbox});node["natural"="tree"](${bbox}););out body geom;`;
-    const res = await fetch(OVERPASS_API, {
-      method: "POST",
-      body: "data=" + encodeURIComponent(query),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    if (!res.ok) throw new Error(`Overpass API failed: ${res.status}`);
-    const data = await res.json();
+    const data = await fetchOverpass(query);
     return parseObstacleElements(data.elements);
   }
 
@@ -153,13 +198,7 @@ const Obstruction = (() => {
   async function fetchBuildingFootprintsInBounds(south, west, north, east) {
     const bbox = `${south},${west},${north},${east}`;
     const query = `[out:json][timeout:30];(way["building"](${bbox}););out body geom;`;
-    const res = await fetch(OVERPASS_API, {
-      method: "POST",
-      body: "data=" + encodeURIComponent(query),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    if (!res.ok) throw new Error(`Overpass API failed: ${res.status}`);
-    const data = await res.json();
+    const data = await fetchOverpass(query);
 
     const buildings = [];
     for (const el of data.elements) {
